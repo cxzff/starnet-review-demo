@@ -1,0 +1,108 @@
+.ontology-app .project-summary { padding-bottom: 18px; }
+.automatic-review { margin: 0 28px; padding: 16px 20px; border: 1px solid #dfe5f3; background: #fff; border-radius: 12px; display: flex; align-items: center; gap: 22px; }
+.automatic-review-copy { flex: 1; min-width: 200px; }
+.automatic-review b { font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.automatic-review p { margin: 5px 0 0; font-size: 11px; color: #8a96aa; }
+.automatic-review-copy > small { font-size: 10px; display: block; margin-top: 5px; }
+.automatic-controls { display: flex; align-items: center; gap: 9px; }
+.automatic-controls input { width: 205px; font-size: 11px; }
+.automatic-controls button { white-space: nowrap; font-size: 11px; }
+.dimension-statuses { display: flex; gap: 10px; margin: 12px 28px 20px; }
+.dimension-status { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: #eef1f8; border-radius: 8px; border: 1px solid #e6eaf3; }
+.dimension-status b { font-size: 11px; font-weight: 500; }
+.dimension-status small { display: block; margin-top: 5px; font-size: 10px; }
+.dimension-status > svg { margin-left: auto; color: #5a9d86; }
+.dimension-dot { height: 6px; width: 6px; flex-shrink: 0; background: #b6c0d3; border-radius: 50%; }
+.state-running .dimension-dot { background: #6d82d3; }
+.state-completed .dimension-dot { background: #59a48e; }
+.state-failed .dimension-dot { background: #cb947c; }
+.workspace-tabs { margin: 0 28px 14px; display: flex; justify-content: space-between; gap: 15px; align-items: center; border-bottom: 1px solid #e0e6f0; }
+.workspace-tabs > div { display: flex; gap: 22px; }
+.workspace-tabs button { border-radius: 0; background: transparent; border-bottom: 2px solid transparent; color: #8e99ad; font-size: 12px; padding: 11px 1px 13px; }
+.workspace-tabs button.active { color: #5267b7; border-bottom-color: #6277c9; }
+.workspace-tabs > span { font-size: 10px; color: #8c9ab0; }
+.ontology-workspace { margin: 0 28px 24px; display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; align-items: stretch; }
+.ontology-main, .ontology-inspector { border: 1px solid #e0e6f0; background: white; border-radius: 12px; overflow: hidden; min-width: 0; }
+.ontology-inspector { max-height: 790px; overflow: auto; }
+.lifecycle-stages { display: grid; grid-template-columns: repeat(7, 1fr); padding: 20px 18px 16px; gap: 8px; border-bottom: 1px solid #eef1f7; }
+.lifecycle-stages button { padding: 0; display: flex; flex-direction: column; gap: 9px; color: #96a0b4; font-size: 10px; background: transparent; }
+.lifecycle-stages button span { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: #f0f3f9; border: 1px solid #e3e9f3; font-size: 10px; }
+.lifecycle-stages b { font-weight: 500; }
+.lifecycle-stages button.state-completed { color: #689786; }
+.lifecycle-stages button.state-completed span { background: #edf7f2; border-color: #d6eade; }
+.lifecycle-stages button.state-running { color: #5f79c2; }
+.lifecycle-stages button.state-running span { background: #edf1fc; border-color: #ccd7f5; }
+.graph-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 14px 18px 8px; }
+.graph-mode { display: flex; background: #f3f5fa; padding: 3px; border-radius: 7px; gap: 3px; }
+.graph-mode button { font-size: 10px; color: #8d99ad; background: transparent; padding: 7px 10px; border-radius: 5px; }
+.graph-mode button.active { background: white; color: #5c70b6; box-shadow: 0 1px 4px #334e8320; }
+.graph-toolbar select { font-size: 10px; max-width: 220px; padding: 7px; }
+.graph-option { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #8d99ad; }
+.graph-option input { accent-color: #687dc5; }
+.graph-search { display: flex; align-items: center; gap: 5px; color: #a0aabd; margin-left: auto; }
+.graph-search input { width: 94px; font-size: 10px; border: 0; padding: 6px 0; }
+.graph-legend { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; padding: 8px 20px 13px; border-bottom: 1px solid #edf0f6; }
+.graph-legend span { font-size: 9px; color: #97a0b3; display: flex; align-items: center; gap: 5px; }
+.graph-legend i { width: 16px; display: inline-block; border-top: 2px solid #a592c7; }
+.graph-legend i.legend-config { border-top: 2px dashed #a8afd0; }
+.graph-legend i.legend-usage { border-top: 2px dashed #7aa89c; }
+.graph-legend small { margin-left: auto; font-size: 9px; color: #a0a9ba; }
+.lifecycle-canvas { height: 570px; position: relative; background: #fafbfe; }
+.lifecycle-canvas .react-flow__attribution { display: none; }
+.lifecycle-canvas .react-flow__controls { box-shadow: 0 2px 8px #3d4f7c15; border: 1px solid #e3e8f3; border-radius: 6px; overflow: hidden; }
+.lifecycle-canvas .react-flow__controls button { padding: 5px; background: white; color: #6d7e9c; border: 0; border-bottom: 1px solid #eef1f7; border-radius: 0; }
+.lifecycle-canvas .react-flow__minimap { background: #fff; border: 1px solid #e6eaf3; border-radius: 8px; height: 86px; width: 130px; }
+.graph-hint { position: absolute; bottom: 14px; left: 58px; color: #a2adbf; font-size: 9px; pointer-events: none; }
+.ontology-node { width: 220px; min-height: 112px; padding: 14px 15px 11px; background: #fff; border: 1px solid #e0e6f0; border-radius: 10px; box-shadow: 0 3px 9px #26385805; }
+.mode-process .ontology-node { width: 190px; }
+.ontology-node.is-selected { border-color: #8496d4; box-shadow: 0 0 0 3px #7087d515; }
+.ontology-node.kind-dimension { background: #f5f7fe; border-color: #dce2f5; }
+.ontology-node.kind-input, .ontology-node.kind-revision { background: #f5faf8; border-color: #dcece5; }
+.ontology-node.kind-finding { background: #fffcf6; border-color: #efe5d1; }
+.ontology-node-top { display: flex; align-items: center; gap: 9px; }
+.ontology-node-top > span { width: 29px; height: 29px; display: grid; place-items: center; border-radius: 8px; flex-shrink: 0; }
+.ontology-node-top b { font-size: 12px; font-weight: 500; line-height: 1.6; color: #5b6781; overflow-wrap: anywhere; }
+.ontology-node p { font-size: 10px; color: #94a0b3; line-height: 1.6; margin: 9px 0; }
+.ontology-node-state { font-size: 9px; color: #a2abbb; display: flex; align-items: center; gap: 4px; margin-top: 9px; }
+.ontology-node.state-completed .ontology-node-state, .ontology-node.state-accepted .ontology-node-state { color: #7aa38f; }
+.ontology-node .react-flow__handle { width: 5px; height: 5px; background: #b8c4d8; border: 1px solid #fff; }
+.graph-loading { min-height: 570px; display: flex; align-items: center; justify-content: center; gap: 10px; color: #98a7be; font-size: 12px; }
+.graph-inspector-content { padding: 23px 22px; }
+.graph-inspector-content h2 { font-size: 17px; color: #44546f; line-height: 1.7; margin: 9px 0 10px; }
+.inspector-subtitle { color: #8b98af; font-size: 11px; margin: 0; }
+.graph-inspector-content p { font-size: 11px; color: #8391a7; line-height: 1.9; overflow-wrap: anywhere; }
+.inspector-section { margin: 18px 0 0; padding-top: 16px; border-top: 1px solid #edf0f6; }
+.inspector-section > b { font-size: 11px; font-weight: 500; color: #6d7c97; display: flex; align-items: center; gap: 5px; }
+.inspector-section > small { font-size: 10px; line-height: 1.9; display: block; }
+.inspector-section code { font: 10px/1.8 inherit; color: #8995b5; background: #f3f5fb; padding: 2px 5px; display: inline-block; margin: 5px 3px 0 0; max-width: 100%; overflow-wrap: anywhere; }
+.inspector-section dl { display: grid; grid-template-columns: 1fr 1fr; font-size: 11px; color: #8b98ac; gap: 10px; }
+.inspector-section dd { margin: 0; text-align: right; }
+.inspector-section blockquote { border-left: 2px solid #d9c8a3; background: #faf8f3; margin: 12px 0 0; padding: 10px 12px; font-size: 11px; color: #998a73; line-height: 1.9; }
+.inspector-section .inspector-analysis { white-space: pre-wrap; }
+.inspector-section .inspector-excerpt { border-left: 2px solid #e6eaf4; padding: 5px 0 5px 10px; }
+.inspector-source { margin: 10px 0; padding: 9px 10px; border: 1px solid #e9edf5; border-radius: 6px; }
+.inspector-source summary { cursor: pointer; font-size: 10px; line-height: 1.8; color: #8a99b4; }
+.inspector-source p { white-space: pre-wrap; }
+.live-agent-output h3 { font-size: 12px; font-weight: 500; color: #7c8db3; display: flex; align-items: center; gap: 5px; }
+.inspector-identifiers { border-top: 1px solid #edf0f6; margin-top: 22px; padding-top: 15px; font-size: 10px; color: #a2adbd; }
+.inspector-identifiers summary { cursor: pointer; }
+.inspector-identifiers code { display: block; margin: 12px 0; font-size: 9px; overflow-wrap: anywhere; line-height: 1.8; }
+.inspector-empty { text-align: center; padding: 80px 25px; color: #a4b1ca; }
+.inspector-empty h3 { font-size: 13px; font-weight: 500; color: #8b9ab4; }
+.inspector-empty p { font-size: 11px; line-height: 2; color: #a0abbd; }
+.trace-note { padding: 10px 13px; background: #faf7ef; border-radius: 6px; font-size: 10px !important; }
+.live-agent-output { padding: 0 20px 20px; }
+.live-agent-output details { border-top: 1px solid #edf0f6; padding: 14px 0; }
+.live-agent-output summary { color: #8395ba; font-size: 11px; cursor: pointer; }
+.live-agent-output p { white-space: pre-wrap; color: #8c98ac; font-size: 11px; line-height: 1.9; }
+.source-workspace { height: 740px; }
+.finding-dimension { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #8998b7; margin-bottom: 9px; }
+.finding-dimension button { margin-left: auto; background: transparent; color: #94a3bf; padding: 0; font-size: 9px; }
+.opinion-count { font-size: 12px; background: #f0f3fb; border-radius: 20px; padding: 5px 9px; color: #8396c4; }
+.source-return { margin: 0 20px; background: #f4f6fc; color: #7c8eb5; font-size: 10px; justify-content: space-between; }
+.all-activity { background: white; margin: 0 28px 25px; border: 1px solid #e1e6f0; border-radius: 12px; padding: 22px 28px; min-height: 450px; }
+.all-activity h2 { font-size: 16px; color: #657690; }
+.all-activity > p { color: #99a5b9; font-size: 12px; }
+@media(min-width:1700px) { .ontology-workspace { grid-template-columns: minmax(0,1fr) 390px; } .lifecycle-canvas { height: 650px; } .ontology-inspector { max-height: 880px; } }
+@media(max-width:1150px) { .ontology-workspace { grid-template-columns: minmax(0,1fr) 280px; margin: 0 18px 22px; gap: 12px; } .automatic-review,.dimension-statuses,.workspace-tabs { margin-left: 18px; margin-right: 18px; } .automatic-review { gap: 12px; } .automatic-review input { width: 185px; } .dimension-status { padding: 10px 9px; gap: 7px; } .graph-inspector-content { padding: 20px 17px; } .graph-toolbar { gap: 9px; } .graph-search { display: none; } .graph-legend small { display: none; } }
+@media(max-width:850px) { .ontology-workspace { grid-template-columns: 1fr; } .ontology-inspector { max-height: none; min-height: 150px; } .inspector-empty { padding: 26px; } .lifecycle-canvas { height: 520px; } .automatic-review { flex-wrap: wrap; } .automatic-review input { flex: 1; width: 160px; } .dimension-statuses { flex-wrap: wrap; } .dimension-status { flex-basis: 28%; } .workspace-tabs { align-items: flex-start; } .workspace-tabs > div { gap: 13px; } .workspace-tabs > span { display: none; } .lifecycle-stages { padding: 16px 10px; gap: 4px; } .lifecycle-stages b { font-size: 9px; } .source-workspace { height: auto; } }

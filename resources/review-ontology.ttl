@@ -1,0 +1,50 @@
+@prefix review: <https://starnet.local/review/> .
+@prefix rv: <https://starnet.local/review/vocab#> .
+@prefix se: <https://example.org/software-engineering/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+review:profile a rv:ReviewProfile ; rdfs:label "软件工程文档评审本体"@zh ;
+    rv:version "1.1.0" ; rv:dimension review:requirements, review:design, review:interfaces, review:testing, review:quality .
+
+review:requirements a rv:ReviewDimension ; rdfs:label "需求与追踪"@zh ; rv:order 1 ;
+    rv:agentName "需求追踪评审智能体" ;
+    rv:scope "需求表述、来源、对象边界、验证方式及双向追踪的一致性" ;
+    rv:reviewsConcept se:softwareRequirement, se:requirementsEngineering, se:requirementsTraceability ;
+    rv:targetDocumentType review:taskbook, review:srs ; rv:selection "document" ;
+    rv:standardClause "J.5", "J.4" .
+
+review:design a rv:ReviewDimension ; rdfs:label "设计与实现"@zh ; rv:order 2 ;
+    rv:agentName "设计评审智能体" ;
+    rv:scope "需求到架构、软件单元、接口及数据设计的落实与内容一致性" ;
+    rv:reviewsConcept se:softwareDesign, se:softwareArchitecture, se:softwareComponent, se:softwareRequirement ;
+    rv:targetDocumentType review:sdd ; rv:selection "document" ;
+    rv:standardClause "K.6", "K.3", "K.4" .
+
+review:interfaces a rv:ReviewDimension ; rdfs:label "接口与数据"@zh ; rv:order 3 ;
+    rv:agentName "接口与数据评审智能体" ;
+    rv:scope "接口双方、输入输出、数据口径、权限、异常处理与恢复约定的一致性" ;
+    rv:reviewsConcept se:softwareInterface, se:softwareComponent ;
+    rv:targetDocumentType review:srs, review:sdd ; rv:selection "document" ;
+    rv:standardClause "I.4", "J.3.3" .
+
+review:testing a rv:ReviewDimension ; rdfs:label "测试与验证"@zh ; rv:order 4 ;
+    rv:agentName "测试评审智能体" ;
+    rv:scope "测试目标、需求覆盖、测试条件、预期判据、执行记录与测试结论的一致性" ;
+    rv:reviewsConcept se:softwareTesting, se:softwareTest, se:testCase, se:testResult, se:requirementsTraceability ;
+    rv:targetDocumentType review:stp, review:std, review:str ; rv:selection "document" ;
+    rv:standardClause "M.5", "M.4", "N.3" .
+
+review:quality a rv:ReviewDimension ; rdfs:label "性能与质量"@zh ; rv:order 5 ;
+    rv:agentName "性能与质量评审智能体" ;
+    rv:scope "性能指标、统计口径、测量环境与测试证据的一致性" ;
+    rv:reviewsConcept se:softwareQuality, se:softwareMetric, se:softwareMeasurement, se:softwareTest ;
+    rv:targetDocumentType review:srs, review:str ; rv:selection "document" ;
+    rv:standardClause "J.3.4", "M.5", "N.3" .
+
+review:taskbook a rv:DocumentType ; rdfs:label "软件研制任务书"@zh .
+review:srs a rv:DocumentType ; rdfs:label "软件需求规格说明"@zh ; rv:constrainedBy review:taskbook .
+review:sdd a rv:DocumentType ; rdfs:label "软件设计说明"@zh ; rv:constrainedBy review:taskbook, review:srs .
+review:stp a rv:DocumentType ; rdfs:label "测试计划与大纲"@zh ; rv:constrainedBy review:srs, review:sdd .
+review:std a rv:DocumentType ; rdfs:label "测试说明与细则"@zh ; rv:constrainedBy review:srs, review:sdd, review:stp .
+review:str a rv:DocumentType ; rdfs:label "测试报告"@zh ; rv:constrainedBy review:srs, review:sdd, review:stp, review:std .
+review:other a rv:DocumentType ; rdfs:label "参考文档"@zh .

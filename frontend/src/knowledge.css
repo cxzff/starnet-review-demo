@@ -1,0 +1,69 @@
+.knowledge-canvas { position:relative; height:640px; background:#fbfcff; overflow:hidden; }
+.knowledge-svg { width:100%; height:100%; display:block; touch-action:none; cursor:grab; }
+.knowledge-svg:active { cursor:grabbing; }
+.kg-node { cursor:grab; transition:opacity .22s; outline:none; }
+.kg-node:focus .kg-node-core { stroke:#344a7a; stroke-width:3; }
+.kg-node-core { filter:drop-shadow(0 2px 2px #3450780d); }
+.kg-node-ring { opacity:.75; }
+.kg-node-label { font-size:11px; font-weight:500; fill:#4f617e; stroke:#fbfcff; stroke-width:4px; paint-order:stroke; stroke-linejoin:round; user-select:none; pointer-events:none; }
+.kg-node-symbol { fill:#fff; font-size:10px; font-weight:500; user-select:none; pointer-events:none; }
+.kg-node-document { font-size:9px; fill:#859bb4; stroke:#fbfcff; stroke-width:4px; paint-order:stroke; text-anchor:middle; user-select:none; pointer-events:none; }
+.kg-runtime-ring { opacity:.7; pointer-events:none; }
+.kg-edge { cursor:pointer; transition:opacity .22s; }
+.kg-edge-label { font-size:9px; fill:#7a8cab; stroke:#fbfcff; stroke-width:4px; paint-order:stroke; stroke-linejoin:round; text-anchor:middle; pointer-events:none; user-select:none; }
+.is-animating .kg-edge.active .kg-edge-line { animation:kg-path 1.6s linear infinite; }
+@keyframes kg-path { to { stroke-dashoffset:-26; } }
+@media(prefers-reduced-motion:reduce) { .is-animating .kg-edge.active .kg-edge-line { animation:none; } }
+.kg-overview { position:absolute; top:17px; left:20px; display:flex; align-items:center; gap:6px; font-size:10px; color:#9aa7bc; pointer-events:none; }
+.kg-overview b { font-size:12px; color:#768aa9; font-weight:500; }
+.kg-overview i { width:3px; height:3px; border-radius:50%; background:#c7d0df; margin:0 6px; }
+.kg-label-toggle { position:absolute; top:16px; right:20px; display:flex; align-items:center; gap:5px; color:#98a6bb; font-size:10px; }
+.kg-label-toggle input { accent-color:#879aca; }
+.kg-controls { position:absolute; left:18px; bottom:32px; display:flex; flex-direction:column; border:1px solid #e2e8f2; background:#fff; border-radius:7px; box-shadow:0 3px 12px #3450780a; overflow:hidden; }
+.kg-controls button { border:0; background:#fff; color:#8296b9; padding:7px; border-radius:0; border-bottom:1px solid #edf1f7; }
+.kg-controls button:last-child { border-bottom:0; }
+.kg-hint { position:absolute; left:62px; bottom:17px; font-size:10px; color:#9ba9be; pointer-events:none; }
+.kg-empty { position:absolute; top:40%; width:100%; text-align:center; color:#91a0b9; pointer-events:none; }
+.kg-empty p { font-size:13px; }
+.kg-empty small { font-size:11px; }
+.graph-scene-header { display:flex; justify-content:space-between; align-items:center; padding:20px 22px 14px; border-bottom:1px solid #edf1f8; gap:16px; }
+.graph-scene-header h2 { display:flex; align-items:center; gap:8px; color:#5e7196; font-size:14px; font-weight:500; margin:0 0 7px; }
+.graph-scene-header h2 svg { color:#8397c6; }
+.graph-scene-header p { margin:0; color:#9aa6bc; font-size:10px; line-height:1.8; }
+.graph-scene-header button { font-size:10px; white-space:nowrap; color:#7e91b9; }
+.graph-toolbar .kg-expand-reset { font-size:10px; padding:6px; background:transparent; color:#9aa7bd; }
+.kg-node-legend { display:flex; gap:13px; align-items:center; flex-wrap:wrap; padding:2px 21px 12px; }
+.kg-node-legend span { color:#91a0b7; font-size:9px; display:flex; align-items:center; gap:5px; }
+.kg-node-legend i { width:7px; height:7px; border-radius:50%; }
+.kg-node-legend .kg-layer-key { margin-left:auto; }
+.kg-node-legend .runtime-outline { background:transparent; border:1px dashed #7fa18f; width:10px; height:10px; }
+.kg-relation-legend { display:flex; gap:16px; padding:11px 21px; border-top:1px solid #edf1f7; font-size:9px; color:#a0adbf; flex-wrap:wrap; }
+.kg-relation-legend span { display:flex; align-items:center; gap:5px; }
+.kg-relation-legend i { width:19px; border-top:1px solid #91a3c6; }
+.kg-relation-legend i.configuration { border-top:1px dashed #b6a2cb; }
+.kg-relation-legend i.structure { border-top-color:#c0ccda; }
+.kg-relation-legend i.aggregation { border-top:2px dotted #a8c5c2; }
+.kg-relation-legend i.usage { border-top:1px dashed #76b398; }
+.kg-relation-legend small { margin-left:auto; font-size:9px; }
+.trace-player { border-top:1px solid #edf1f7; border-bottom:1px solid #edf1f7; padding:14px 20px 12px; background:#f9fbff; }
+.trace-player-head { display:flex; gap:10px; justify-content:space-between; align-items:center; }
+.trace-player-head > div { min-width:0; }
+.trace-player-head b { font-size:11px; font-weight:500; color:#758bb3; }
+.trace-player-head p { font-size:10px; margin:5px 0 0; color:#98a8c1; }
+.trace-player-head button { font-size:10px; padding:6px 10px; }
+.trace-steps { display:flex; gap:5px; align-items:center; margin-top:12px; }
+.trace-steps button { flex:1; padding:8px 4px; font-size:9px; color:#9eaac0; background:#f0f3fa; border-radius:5px; }
+.trace-steps button.active { background:#eaf3f0; color:#6c9c8a; border-color:#cfe5dc; }
+.trace-steps button.passed { background:#eef2fb; color:#7f95be; }
+.trace-live-follow { display:flex; align-items:center; gap:4px; color:#92a0b7; font-size:10px; }
+.trace-live-follow input { accent-color:#7087bf; }
+.ontology-inspector .expand-neighbors { margin:0 22px 18px; font-size:11px; }
+.recall-statistics { padding:20px 22px 18px; border-bottom:1px solid #e9eef6; background:#f9fbfe; }
+.recall-statistics h3 { margin:9px 0 14px; font-size:13px; font-weight:500; color:#6d819f; }
+.recall-statistics dl { margin:0; display:grid; grid-template-columns:1fr auto; gap:10px; font-size:11px; color:#8b9bb0; }
+.recall-statistics dd { margin:0; text-align:right; color:#7489a9; }
+.recall-statistics p { margin:12px 0 0; font-size:10px; line-height:1.9; color:#99a7bb; }
+.knowledge-workspace .ontology-inspector { max-height:940px; }
+@media(min-width:1700px) { .knowledge-canvas { height:700px; } }
+@media(max-width:1100px) { .kg-node-legend { gap:9px; } .graph-scene-header { padding:16px 18px 12px; } .graph-scene-header button { font-size:9px; } }
+@media(max-width:850px) { .knowledge-canvas { height:570px; } .graph-scene-header { align-items:flex-start; } .trace-steps { flex-wrap:wrap; } .trace-steps button { flex-basis:22%; } .kg-hint { font-size:9px; left:58px; } .kg-label-toggle { right:12px; } }
