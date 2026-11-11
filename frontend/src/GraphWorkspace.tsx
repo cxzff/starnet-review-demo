@@ -7,9 +7,9 @@ import type { GraphData, GraphItem, Lifecycle } from './types';
 
 const LifecycleGraph=lazy(()=>import('./LifecycleGraph').then(module=>({default:module.LifecycleGraph})));
 
-type Props={projectKey:string;life:Lifecycle|null;mode:string;setMode:(s:string)=>void;selected:GraphItem|null;setSelected:(n:GraphItem|null)=>void;selectedRun:string;onRun:(id:string)=>void;running:boolean;followLive:boolean;onFollow:(value:boolean)=>void;streams:Record<string,{role:string;text:string}>;onLocate:(block:string,document?:string)=>void};
+type Props={projectKey:string;life:Lifecycle|null;historical:boolean;allowExecution:boolean;mode:string;setMode:(s:string)=>void;selected:GraphItem|null;setSelected:(n:GraphItem|null)=>void;selectedRun:string;onRun:(id:string)=>void;running:boolean;followLive:boolean;onFollow:(value:boolean)=>void;streams:Record<string,{role:string;text:string}>;onLocate:(block:string,document?:string)=>void};
 
-export function GraphWorkspace({projectKey,life,mode,setMode,selected,setSelected,selectedRun,onRun,running,followLive,onFollow,streams,onLocate}:Props){
+export function GraphWorkspace({projectKey,life,historical,allowExecution,mode,setMode,selected,setSelected,selectedRun,onRun,running,followLive,onFollow,streams,onLocate}:Props){
   const [expanded,setExpanded]=useState(new Set<string>()),[allClauses,setAllClauses]=useState(false),[search,setSearch]=useState('');
   const [step,setStep]=useState(6),[playing,setPlaying]=useState(false);
   const trace=life?.trace&&life.selected_run===selectedRun?life.trace:null;
@@ -31,12 +31,15 @@ export function GraphWorkspace({projectKey,life,mode,setMode,selected,setSelecte
   },[life,mode,expanded,allClauses,search,trace?.run_id,step]);
   const kinds=[...new Set(graph.nodes.map(n=>n.kind))].filter(k=>nodeKinds[k]);
   const pendingUpstream=life?.content_status.filter(d=>d.document_id!==life.plan.document_id&&!d.saved)||[];
+  const hasContent=!!life?.content_status.find(d=>d.document_id===life.plan.document_id)?.saved;
+  const ontologyTitle=hasContent?'文档内容本体（已保存）':'原文与静态挂接';
+  const modes=[['ontology',ontologyTitle],['static','静态规范本体'],...(allowExecution?[['consumption',historical?'历史消费记录':'本次消费记录'],['process',historical?'历史流程':'本次流程']]:[])];
   function replay(){if(!trace)return;onFollow(false);setMode('consumption');setSelected(null);setSearch('');setStep(0);setPlaying(true);}
   function viewMode(id:string){setMode(id);setSelected(null);setSearch('');setPlaying(false);}
   return <div className="ontology-workspace knowledge-workspace"><section className="ontology-main">
     {mode==='ontology'&&!!pendingUpstream.length&&<p className="trace-note">已上传但尚未建立本体的上游文档：{pendingUpstream.map(d=>d.title).join('、')}。可先完成这些上游文档；本轮不会自动替它们建图或重评。</p>}
-    <div className="graph-scene-header"><div><h2><Network size={18}/>{mode==='process'?'本体使用流程概览':mode==='consumption'?'本次评审如何使用本体':mode==='static'?'静态规范与类型本体':'文档内容本体'}</h2><p>{mode==='ontology'?'按文档版本保存实际内容；概念和明示关系可扩展，双击展开原文。':mode==='static'?'静态标准条款保留规范原文与来源，不被项目内容覆盖。':mode==='consumption'?'沿真实记录观察召回、关系探索、输入消费与意见引用；不生成新的本体关系。':'流程概览仅说明阶段，节点与关系请在知识图谱中查看。'}</p></div>{mode!=='process'&&<button className="secondary" disabled={!trace||isLive} onClick={replay}><Play size={12}/>回放本体使用过程</button>}</div>
-    <div className="graph-toolbar"><div className="graph-mode">{[['ontology','文档内容本体'],['static','静态规范本体'],['consumption','运行与消费记录'],['process','流程概览']].map(([id,label])=><button key={id} className={mode===id?'active':''} onClick={()=>viewMode(id)}>{label}</button>)}</div>
+    <div className="graph-scene-header"><div><h2><Network size={18}/>{mode==='process'?(historical?'历史评审流程':'本次评审流程'):mode==='consumption'?(historical?'历史评审如何使用本体':'本次评审如何使用本体'):mode==='static'?'静态规范与类型本体':ontologyTitle}</h2><p>{mode==='ontology'?(hasContent?'这是当前文档已保存的内容本体，可在新评审中复用。':'原文导入后的条款结构与通用类型挂接；文档内容本体将在开始评审后构建。'):mode==='static'?'静态标准条款保留规范原文与来源，不被项目内容覆盖。':mode==='consumption'?'沿所选记录查看召回、输入与引用；历史回放不会重新发起评审。':'流程概览说明所选评审记录的阶段。'}</p></div>{mode!=='process'&&trace&&allowExecution&&<button className="secondary" disabled={isLive} onClick={replay}><Play size={12}/>回放所选评审记录</button>}</div>
+    <div className="graph-toolbar"><div className="graph-mode">{modes.map(([id,label])=><button key={id} className={mode===id?'active':''} onClick={()=>viewMode(id)}>{label}</button>)}</div>
       {mode==='ontology'&&<><label className="graph-option"><input type="checkbox" checked={allClauses} onChange={e=>setAllClauses(e.target.checked)}/>展开全部条款</label>{!!expanded.size&&<button className="kg-expand-reset" onClick={()=>setExpanded(new Set())}>收起展开</button>}</>}
       {mode==='consumption'&&<><select aria-label="查看实际处理记录" value={selectedRun} onChange={e=>{setPlaying(false);onRun(e.target.value);}}><option value="">等待真实处理记录</option>{life?.runs.map((r,i)=><option value={r.id} key={r.id}>{r.agent} · {r.scope==='dimension'?'完整维度':'历史记录'} {i+1}</option>)}</select>{running&&<label className="trace-live-follow"><input type="checkbox" checked={followLive} onChange={e=>onFollow(e.target.checked)}/>跟随当前处理</label>}</>}
       <label className="graph-search"><Search size={13}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="查找概念或条款"/></label></div>
