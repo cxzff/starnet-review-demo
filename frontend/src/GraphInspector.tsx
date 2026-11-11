@@ -4,7 +4,7 @@ import { layerNames } from './knowledge';
 
 function asText(value:unknown) { return typeof value==='string' ? value : ''; }
 const stageLabels:Record<string,string>={ontology:'本体加载',alignment:'条款挂接',retrieval:'节点与原文召回',exploration:'已有关系探索',reasoning:'约束判断',consumption:'意见引用与定位',revision:'采纳与版本更新'};
-const relationshipDescriptions:Record<string,string>={ontology:'来自领域本体已经声明的关系，不是模型推断的新关系。',configuration:'来自已保存的显式评审配置，不表示已建立标准与项目条款的语义约束。',structure:'来自文档结构或规则挂接，不等于领域概念之间的本体关系。',aggregation:'这是原始挂接边的显示汇总，可展开查看对应条款。',usage:'这是已保存的运行输入或引用记录，不是本体语义关系。'};
+const relationshipDescriptions:Record<string,string>={content:'来自当前文档原文明示内容的抽取候选，保留出处，语义待核查。',ontology:'来自领域本体已经声明的关系，不是模型推断的新关系。',configuration:'来自已保存的显式评审配置，不表示已建立标准与项目条款的语义约束。',structure:'来自文档结构或规则挂接，不等于领域概念之间的本体关系。',aggregation:'这是原始挂接边的显示汇总，可展开查看对应条款。',usage:'这是已保存的运行输入或引用记录，不是本体语义关系。'};
 
 export function GraphInspector({item,onLocate}: {item:GraphItem|null;onLocate:(block:string,document?:string)=>void}) {
   if(!item)return <div className="inspector-empty"><Network size={32}/><h3>点击概念、条款或关系</h3><p>查看定义和关系来源，双击概念或文档可展开关联条款。“评审动态”可回放本体被使用的真实轨迹。</p></div>;
@@ -14,11 +14,11 @@ export function GraphInspector({item,onLocate}: {item:GraphItem|null;onLocate:(b
   const provenance=d.provenance&&typeof d.provenance==='object'?d.provenance as Record<string,unknown>:null;
   return <div className="graph-inspector-content"><span className="eyebrow">{layerNames[item.layer||'']||'节点详情'} · {stageLabels[item.stage]||item.stage}</span><h2>{item.label}</h2>{item.subtitle&&<p className="inspector-subtitle">{item.subtitle}</p>}
     {item.document_title&&<div className="inspector-section"><b>来源文档</b><p>{item.document_title}</p>{asText(d.source_file)&&<small>{asText(d.source_file)}</small>}</div>}
-    {asText(d.scope)&&<div className="inspector-section"><b>本体规定的评审范围</b><p>{asText(d.scope)}</p><p>覆盖 {Number(d.block_count || 0)} 个内容块，安排 {array(d.batches).length} 个批次。</p><p>当前直接挂接命中 {Number(d.matched_clauses || 0)} 个条款；文档范围按评审本体声明执行。</p></div>}
+    {asText(d.scope)&&<div className="inspector-section"><b>本体规定的评审范围</b><p>{asText(d.scope)}</p><p>覆盖 {Number(d.block_count || 0)} 个内容块，安排 {array(d.batches).length} 个维度任务。</p><p>当前直接挂接命中 {Number(d.matched_clauses || 0)} 个条款；文档范围按评审本体声明执行。</p></div>}
     {asText(d.description)&&<p>{asText(d.description)}</p>}
-    {item.kind==='stage'&&typeof d.completed==='number'&&<p>本轮已完成 {d.completed} / {Number(d.total)} 个批次。</p>}
+    {item.kind==='stage'&&typeof d.completed==='number'&&<p>本轮已完成 {d.completed} / {Number(d.total)} 个维度任务。</p>}
     {asText(d.source_name)&&<div className="inspector-section"><b>关系方向</b><p>{asText(d.source_name)} → {item.label} → {asText(d.target_name)}</p><small>{relationshipDescriptions[asText(d.relationship_kind)]}</small></div>}
-    {provenance&&<div className="inspector-section"><b>可追溯记录</b><code>{asText(provenance.source)}</code>{asText(provenance.number)&&<p>标准条款 {asText(provenance.number)}</p>}{asText(provenance.quote)&&<blockquote>{asText(provenance.quote)}</blockquote>}<small>这是配置、输入或引用记录，不表示标准与项目条款存在已建模的语义约束。</small></div>}
+    {provenance&&<div className="inspector-section"><b>可追溯记录</b><code>{asText(provenance.source)}</code>{asText(provenance.number)&&<p>标准条款 {asText(provenance.number)}</p>}{asText(provenance.quote)&&<blockquote>{asText(provenance.quote)}</blockquote>}<small>{asText(d.relationship_kind)==='content'?'这是带原文出处的内容抽取候选，不能自动视为已确认事实。':'这是配置、输入或引用记录，不表示标准与项目条款存在已建模的语义约束。'}</small></div>}
     {array(d.assertions).map((a,i)=><div className="inspector-section" key={i}><b>挂接依据 · {a.route==='route2'?'ClauseGraph 规则匹配':a.route}</b>{a.details?.rule_score!==undefined&&<p>匹配分数 {a.details.rule_score} · {a.details.review_status==='review_required'?'候选挂接，待人工确认':a.details.review_status||'规则已匹配'}</p>}{a.details?.matched_cues&&Object.entries(a.details.matched_cues).map(([k,v])=><p key={k}>{({body:'正文命中词',header:'标题命中词',identifier:'编号命中词'} as Record<string,string>)[k]||k}：{(v as string[]).join('、')}</p>)}<small>匹配分数反映规则命中，不代表内容已满足要求。</small></div>)}
     {asText(d.source)&&<div className="inspector-section"><b>来源</b><p>{asText(d.source)}</p></div>}
     {asText(d.filename)&&<div className="inspector-section"><b>本体文件</b><p>{asText(d.filename)}</p><p>版本 {asText(d.version)}</p></div>}

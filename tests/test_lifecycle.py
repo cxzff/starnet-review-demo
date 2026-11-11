@@ -28,8 +28,8 @@ review:extra a rv:ReviewDimension ; rdfs:label "新增评审维度"@zh ; rv:orde
     assert profile['dependencies']['str'] == ['sdd', 'srs', 'std', 'stp']
 
 
-def test_plan_covers_every_selected_block_once_even_when_batched(imported):
-    plan = make_plan(imported, character_limit=35)
+def test_plan_covers_every_selected_block_once_in_one_dimension_task(imported):
+    plan = make_plan(imported, document_id=imported['documents'][1]['id'])
     assert plan['dimension_count'] == len(read_profile()['dimensions'])
     for role in plan['dimensions']:
         expected = [bid for item in role['coverage'] for bid in item['block_ids']]
@@ -45,12 +45,15 @@ class OfflineModel:
         self.calls = 0
 
     def bind(self, **kwargs):
+        self.schema = kwargs['response_format']['json_schema']['name']
         return self
 
     async def astream(self, messages):
         self.calls += 1
         await asyncio.sleep(0)
-        yield AIMessageChunk(content=json.dumps({'summary': '离线模拟：完成当前视角数据流验证。', 'findings': []}, ensure_ascii=False))
+        value = ({'summary': '离线模拟文档建图。', 'concepts': [], 'relations': []} if self.schema == 'document_content'
+                 else {'summary': '离线模拟：完成当前视角数据流验证。', 'findings': []})
+        yield AIMessageChunk(content=json.dumps(value, ensure_ascii=False))
         yield AIMessageChunk(content='', usage_metadata={'input_tokens': 10, 'output_tokens': 5, 'total_tokens': 15})
 
 
@@ -70,7 +73,7 @@ def test_all_dimensions_run_independently_with_no_extra_summary_calls(imported, 
 
     cycle = asyncio.run(run_all(imported, emit, model_factory=lambda: model))
     assert cycle['status'] == 'completed'
-    assert model.calls == cycle['batch_count'] == cycle['metrics']['model_calls']
+    assert model.calls == cycle['batch_count'] + 1 == cycle['metrics']['model_calls']
     assert cycle['metrics']['total_tokens'] == 15 * model.calls
     assert all(d['status'] in ('completed', 'not_applicable') for d in cycle['dimensions'])
     assert all(r['input_manifest']['dimension_uri'] for r in imported['runs'])

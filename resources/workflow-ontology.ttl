@@ -1,0 +1,16 @@
+@prefix wf: <https://starnet.local/workflow/> .
+@prefix review: <https://starnet.local/review/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+wf:profile a wf:WorkflowProfile ; wf:version "1.0.0" ;
+    rdfs:label "文档建图与独立维度评审流程"@zh .
+wf:ingest a wf:Stage ; rdfs:label "解析全文与规范挂接"@zh ; wf:next wf:grow .
+wf:grow a wf:Stage ; rdfs:label "按当前文档版本构建内容本体"@zh ; wf:next wf:review .
+wf:review a wf:Stage ; rdfs:label "当前文档的适用专家各评审一次"@zh ; wf:next wf:revise .
+wf:revise a wf:Stage ; rdfs:label "原文意见与用户采纳"@zh .
+
+wf:requirements a wf:ReviewAgent ; wf:perspective review:requirements ; rdfs:label "需求追踪评审智能体"@zh .
+wf:design a wf:ReviewAgent ; wf:perspective review:design ; rdfs:label "设计评审智能体"@zh .
+wf:interfaces a wf:ReviewAgent ; wf:perspective review:interfaces ; rdfs:label "接口与数据评审智能体"@zh .
+wf:testing a wf:ReviewAgent ; wf:perspective review:testing ; rdfs:label "测试评审智能体"@zh .
+wf:quality a wf:ReviewAgent ; wf:perspective review:quality ; rdfs:label "性能与质量评审智能体"@zh .

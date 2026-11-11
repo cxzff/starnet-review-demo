@@ -2,7 +2,7 @@ import type { GraphData, GraphEdge, GraphItem, GraphTrace } from './types';
 
 export const relationNames:Record<string,string>={relatedTo:'关联',partOf:'属于',contains:'包含',CONTAINS:'包含条款',CLASSIFIED_AS:'归入概念'};
 export const nodeKinds:Record<string,{label:string;color:string;radius:number}>={
-  concept:{label:'概念',color:'#627fc6',radius:17},dimension:{label:'评审维度',color:'#9b79bd',radius:22},
+  content:{label:'文档内容概念',color:'#449d83',radius:17},concept:{label:'通用类型概念',color:'#627fc6',radius:17},dimension:{label:'评审维度',color:'#9b79bd',radius:22},
   document:{label:'文档',color:'#4b9e99',radius:22},clause:{label:'条款',color:'#8eabc3',radius:11},
   standard:{label:'标准原文',color:'#c1a161',radius:15},input:{label:'输入',color:'#63a88c',radius:19},
   agent:{label:'智能体',color:'#6f8bae',radius:21},finding:{label:'意见',color:'#cf8b72',radius:16},
@@ -16,7 +16,7 @@ export function nodeCaption(n:GraphItem){return n.document_name?`${n.document_na
 export function relationItem(edge:GraphEdge,graph:GraphData):GraphItem {
   const source=graph.nodes.find(n=>n.id===edge.source),target=graph.nodes.find(n=>n.id===edge.target);
   return {id:edge.id,kind:'relationship',label:relationNames[edge.label]||edge.label,
-    stage:edge.kind==='ontology'?'exploration':edge.label==='CLASSIFIED_AS'||edge.kind==='aggregation'?'alignment':target?.stage||'consumption',
+    stage:['ontology','content'].includes(edge.kind)?'exploration':edge.label==='CLASSIFIED_AS'||edge.kind==='aggregation'?'alignment':target?.stage||'consumption',
     layer:edge.kind==='ontology'?'ontology':edge.kind==='configuration'?'configuration':edge.kind==='usage'?'runtime':'document',
     details:{source_name:source?nodeCaption(source):'',target_name:target?nodeCaption(target):'',
       relationship_kind:edge.kind,assertions:edge.details||[],clause_ids:edge.clause_ids||[],
@@ -30,16 +30,16 @@ export function ontologyNetwork(source:GraphData,expanded:Set<string>,allClauses
   const documents=new Map(source.nodes.filter(n=>n.kind==='document').map(n=>[n.document_id,n]));
   const clauses=new Set<string>();
   for(const n of source.nodes)if(n.kind==='clause'&&(allClauses||expanded.has(n.id)||expanded.has(documents.get(n.document_id)?.id||'')))clauses.add(n.id);
-  for(const e of source.edges)if(e.label==='CLASSIFIED_AS'&&expanded.has(e.target))clauses.add(e.source);
-  const ids=new Set(source.nodes.filter(n=>['concept','dimension','document'].includes(n.kind)||clauses.has(n.id)).map(n=>n.id));
+  for(const e of source.edges)if(['CLASSIFIED_AS','MENTIONS'].includes(e.label)&&expanded.has(e.target))clauses.add(e.source);
+  const ids=new Set(source.nodes.filter(n=>['concept','content','standard','document'].includes(n.kind)||clauses.has(n.id)).map(n=>n.id));
   for(const e of source.edges)if(expanded.has(e.source)&&['standard','doctype'].includes(byId.get(e.target)?.kind||''))ids.add(e.target);
   const aggregates=new Map<string,GraphEdge>();
   for(const e of source.edges){
-    if(e.label!=='CLASSIFIED_AS'||clauses.has(e.source))continue;
+    if(!['CLASSIFIED_AS','MENTIONS'].includes(e.label)||clauses.has(e.source))continue;
     const clause=byId.get(e.source),doc=documents.get(clause?.document_id);
     if(!doc)continue;
     const key='aggregate:'+doc.id+':'+e.target;
-    const value=aggregates.get(key)||{id:key,source:doc.id,target:e.target,label:'条款挂接汇总',kind:'aggregation',clause_ids:[]};
+    const value=aggregates.get(key)||{id:key,source:doc.id,target:e.target,label:e.label==='MENTIONS'?'内容来源汇总':'条款挂接汇总',kind:'aggregation',clause_ids:[]};
     if(!value.clause_ids!.includes(e.source))value.clause_ids!.push(e.source);
     aggregates.set(key,value);
   }

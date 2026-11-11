@@ -25,6 +25,16 @@ app.add_middleware(CORSMiddleware, allow_origins=['http://127.0.0.1:5180', 'http
 running = set()
 
 
+def provided_files():
+    files = []
+    for key in ('DEMO_DOCUMENT', 'DEMO_DOCUMENT_2'):
+        value = os.getenv(key)
+        if value:
+            path = Path(value)
+            files.extend(sorted(path.glob('*.docx')) if path.is_dir() else [path])
+    return files
+
+
 @app.exception_handler(FileNotFoundError)
 async def not_found(request, exc):
     from fastapi.responses import JSONResponse
@@ -41,7 +51,7 @@ async def invalid_input(request, exc):
 def config():
     return {'agents': read_profile()['dimensions'], 'model': os.getenv('LLM_MODEL_NAME', 'qwen3.8-flash'),
             'model_configured': bool(os.getenv('LLM_API_KEY')), 'provided_document': bool(os.getenv('DEMO_DOCUMENT')),
-            'provided_sources': [{'id': i, 'name': Path(os.getenv(k)).stem} for i, k in [(1, 'DEMO_DOCUMENT'), (2, 'DEMO_DOCUMENT_2')] if os.getenv(k)]}
+            'provided_sources': [{'id': i, 'name': path.stem} for i, path in enumerate(provided_files(), 1)]}
 
 
 @app.get('/api/health')
@@ -63,25 +73,25 @@ def project(project_id: str):
 
 
 @app.get('/api/projects/{project_id}/lifecycle')
-async def ontology_lifecycle(project_id: str, run_id: str | None = None):
-    return await asyncio.to_thread(lifecycle, load(project_id), run_id)
+async def ontology_lifecycle(project_id: str, run_id: str | None = None, document_id: str | None = None):
+    return await asyncio.to_thread(lifecycle, load(project_id), run_id, document_id)
 
 
 @app.post('/api/import-provided')
 async def provided(sample: int = 1):
-    if sample not in (1, 2):
+    files = provided_files()
+    if not 1 <= sample <= len(files):
         raise HTTPException(404, '样例不存在')
-    path = Path(os.getenv('DEMO_DOCUMENT' if sample == 1 else 'DEMO_DOCUMENT_2', ''))
+    path = files[sample - 1]
     if not path.exists() or str(path) == '.':
         raise HTTPException(404, '尚未配置提供的合册，请上传文档')
-    paths = sorted(path.glob('*.docx')) if path.is_dir() else [path]
-    if not paths:
-        raise HTTPException(404, '目录中没有 DOCX 文档')
-    return await asyncio.to_thread(import_files, [(p, p.name, None) for p in paths])
+    return await asyncio.to_thread(import_files, [(path, path.name, None)])
 
 
 @app.post('/api/import')
 async def upload(documents: list[UploadFile] = File(...), project_id: str = Form(''), document_type: str = Form('')):
+    if len(documents) != 1:
+        raise HTTPException(422, '请一次导入一份待评审文档，已有上游文档会保留在当前项目中')
     if project_id in running:
         raise HTTPException(409, '请先停止正在进行的评审')
     with TemporaryDirectory() as directory:
@@ -106,12 +116,14 @@ class ReviewRequest(BaseModel):
     focus: str = ''
 
 
-class FullReviewRequest(BaseModel):
+class DocumentReviewRequest(BaseModel):
     focus: str = ''
+    document_id: str | None = None
 
 
-@app.post('/api/projects/{project_id}/review-all')
-async def review_all(project_id: str, request: FullReviewRequest):
+@app.post('/api/projects/{project_id}/review-all', deprecated=True)
+@app.post('/api/projects/{project_id}/review-document')
+async def review_document(project_id: str, request: DocumentReviewRequest):
     project = load(project_id)
     if project_id in running:
         raise HTTPException(409, '此项目已有评审正在进行')
@@ -120,7 +132,7 @@ async def review_all(project_id: str, request: FullReviewRequest):
 
     async def produce():
         try:
-            await run_all(project, queue.put, request.focus)
+            await run_all(project, queue.put, request.focus, document_id=request.document_id)
         except Exception as exc:
             await queue.put({'kind': 'error', 'message': f'{type(exc).__name__}: {str(exc)[:250]}'})
         finally:

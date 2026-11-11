@@ -1,6 +1,9 @@
 """Project a truthful ontology/usage graph from Neo4j and persisted execution records."""
 import hashlib
 import json
+import os
+from pathlib import Path
+from urllib.parse import unquote
 
 from clausegraph.contracts import fingerprint
 from clausegraph.publishing import neo4j_driver
@@ -8,6 +11,7 @@ from clausegraph.publishing import neo4j_driver
 from .core import ONTOLOGY, standards, uri
 from .ontology import configuration_snapshot, read_profile
 from .planning import make_plan
+from .content import content_identifier, version_key
 
 STAGES = [
     ('ontology', '本体加载', '领域本体与评审本体的版本、概念和维度'),
@@ -28,7 +32,7 @@ def edge(source, target, label, kind='trace', **data):
 def node(identifier, kind, label, stage, **data):
     layer = ('ontology' if kind in ('concept', 'ontology') else
              'configuration' if kind in ('dimension', 'profile', 'doctype', 'configuration') else
-             'document' if kind in ('clause', 'document', 'standard') else 'runtime')
+             'document' if kind in ('clause', 'document', 'standard', 'content') else 'runtime')
     return {'id': identifier, 'kind': kind, 'label': label, 'stage': stage, 'layer': layer, **data}
 
 
@@ -55,11 +59,11 @@ def read_snapshot(project):
             OPTIONAL MATCH (n)-[:REPRESENTS_VERSION]->(dv)
             OPTIONAL MATCH (n)-[:IN_DOCUMENT]->(:Document)-[:REPRESENTS_VERSION]->(ov)
             RETURN n.id AS id, n.kind AS kind, n.label AS label, n.labels AS aliases, n.uri AS uri,
-                   coalesce(dv.document_id,ov.document_id) AS document_id
+                   coalesce(n.document_id,dv.document_id,ov.document_id) AS document_id
         ''', snapshot=snapshot).data()
         edges = session.run('''
             MATCH (:ClauseGraphSnapshot {id:$snapshot})-[:HAS_NODE]->(a)-[r]->(b:ClauseGraphNode {snapshot_id:$snapshot})
-            WHERE type(r) IN ['CONTAINS','CLASSIFIED_AS','TYPE_RELATION']
+            WHERE type(r) IN ['CONTAINS','CLASSIFIED_AS','TYPE_RELATION','MENTIONS','CONTENT_RELATION']
             RETURN a.id AS source,b.id AS target,type(r) AS relation,r.predicate AS predicate,r.assertions_json AS assertions
         ''', snapshot=snapshot).data()
     return nodes, edges
@@ -111,21 +115,23 @@ def consumption_graph(project, run, profile):
         if block.get('clause_id') and block.get('document_id') in documents:
             origins[block['clause_id']] = document_identity(documents[block['document_id']], block.get('document_title'))
     for path in context.get('paths', []):
-        if run.get('document_id') in documents:
+        if path['target'] not in origins and run.get('document_id') in documents:
             origins[path['target']] = document_identity(documents[run['document_id']])
     for path in context.get('paths', []):
         for part in path['nodes']:
-            is_concept = part['id'].startswith('type:')
+            is_concept = part['id'].startswith(('type:', 'content:'))
             blocks = [b for b in source_blocks if b.get('clause_id') == part['id']]
-            add(node(part['id'], 'concept' if is_concept else 'clause', part['label'] or '文档说明',
+            add(node(part['id'], 'content' if part['id'].startswith('content:') else 'concept' if is_concept else 'clause', part['label'] or '文档说明',
                      'ontology' if is_concept else 'alignment', status='completed',
-                     **origins.get(part['id'], {}),
+                     **origins.get(part['id'], document_identity(documents[part['document_id']])
+                                   if part.get('document_id') in documents else {}),
                      block_id=blocks[0]['id'] if blocks else None,
                      details={'snapshot_id': context.get('snapshot_id'), 'blocks': blocks}))
         for rel in path['edges']:
             predicate = rel['predicate'].rsplit('/', 1)[-1]
             edges.append(edge(rel['source'], rel['target'], predicate,
-                              'structure' if predicate == 'CLASSIFIED_AS' else 'ontology'))
+                              'structure' if predicate == 'CLASSIFIED_AS' else 'content'
+                              if rel['source'].startswith('content:') else 'ontology'))
     input_id = add(node('input:' + run['id'], 'input', '本次模型输入', 'reasoning',
         subtitle=f"{len(context.get('evidence', []))} 处召回原文 · {len(context.get('paths', []))} 条路径",
         details={'manifest': run.get('input_manifest'), 'historical': not has_manifest and not configuration,
@@ -237,16 +243,23 @@ def usage_trace(run, graph):
             'source': 'saved_context_and_findings', 'has_input_manifest': bool(run.get('input_manifest'))}
 
 
-def lifecycle(project, run_id=None):
+def lifecycle(project, run_id=None, document_id=None):
     profile = read_profile()
-    plan = make_plan(project, profile)
+    plan = make_plan(project, profile, document_id)
+    current_document = next(d for d in project['documents'] if d['id'] == plan['document_id'])
+    upstream_types = profile['dependencies'].get(current_document['type'], [])
+    scoped_document_ids = {d['id'] for d in project['documents']
+                           if d['id'] == current_document['id'] or d['type'] in upstream_types}
     snapshot = project['graph']['snapshot_id']
     publish_profile(profile, snapshot)
     base_nodes, base_edges = read_snapshot(project)
     documents = {d['id']: d for d in project['documents']}
     cycles = project.get('cycles', [])
-    cycle = cycles[-1] if cycles else None
-    cycle_current = bool(cycle and cycle['snapshot_id'] == snapshot and cycle['profile']['id'] == profile['id'])
+    cycle = next((c for c in reversed(cycles) if c.get('document_id') == plan['document_id']), None)
+    upstream_versions = {d['id']: d['sha256'] for d in project['documents'] if d['type'] in upstream_types}
+    cycle_current = bool(cycle and cycle.get('document_sha256') == current_document['sha256']
+                         and cycle.get('upstream_versions') == upstream_versions and cycle['profile']['id'] == profile['id']
+                         and cycle.get('strategy') == plan.get('strategy'))
     roles = cycle['dimensions'] if cycle_current else plan['dimensions']
     nodes, edges = {}, []
     domain_id = 'ontology:' + hashlib.sha256(ONTOLOGY.read_bytes()).hexdigest()
@@ -260,8 +273,13 @@ def lifecycle(project, run_id=None):
         label = next((v for v in value.get('aliases') or [] if any('\u4e00' <= c <= '\u9fff' for c in v)), value['label'])
         doc = documents.get(value['document_id'])
         is_concept = value['kind'] == 'TypeConcept'
+        is_content = value['kind'] == 'ContentConcept'
         blocks = [b for b in doc['blocks'] if b['clause_id'] == identifier] if doc else []
-        nodes[identifier] = node(identifier, 'concept' if is_concept else value['kind'].lower(),
+        if is_content and doc:
+            record = project.get('content_ontologies', {}).get(doc['id'] + ':' + doc['sha256'], {})
+            clauses = {m['clause_id'] for m in record.get('extraction', {}).get('mentions', []) if m['concept'] == value['label']}
+            blocks = [b for b in doc['blocks'] if b['clause_id'] in clauses]
+        nodes[identifier] = node(identifier, 'concept' if is_concept else 'content' if is_content else value['kind'].lower(),
             doc['type_name'] if value['kind'] == 'Document' and doc else label or '文档说明',
             'ontology' if is_concept else 'alignment', status='completed',
             document_id=value['document_id'], block_id=next((b['id'] for b in blocks if b['kind'] != 'heading'), None),
@@ -273,13 +291,13 @@ def lifecycle(project, run_id=None):
         if is_concept:
             edges.append(edge(domain_id, identifier, '定义概念', 'configuration'))
     for value in base_edges:
-        kind = 'ontology' if value['relation'] == 'TYPE_RELATION' else 'structure'
-        edges.append(edge(value['source'], value['target'], value['predicate'].rsplit('/', 1)[-1] if value['predicate'] else value['relation'], kind,
+        kind = 'content' if value['relation'] == 'CONTENT_RELATION' else 'ontology' if value['relation'] == 'TYPE_RELATION' else 'structure'
+        edges.append(edge(value['source'], value['target'], unquote(value['predicate'].rsplit('/', 1)[-1]) if value['predicate'] else value['relation'], kind,
                           details=json.loads(value['assertions']) if value['assertions'] else []))
     for role in roles:
         identifier = 'dimension:' + role['id']
         nodes[identifier] = node(identifier, 'dimension', role['label'], 'ontology', status=role['status'],
-            subtitle=f"{len(role['batches'])} 个处理批次 · {role['block_count']} 个内容块", details=role)
+            subtitle=f"1 个维度任务 · {role['block_count']} 个内容块" if role['batches'] else '无适用材料', details=role)
         edges.append(edge(profile_id, identifier, '声明评审维度', 'configuration'))
         for concept in role['concept_uris']:
             target = 'type:' + concept
@@ -299,7 +317,9 @@ def lifecycle(project, run_id=None):
         for kind in role['target_types']:
             edges.append(edge('dimension:' + role['id'], 'doctype:' + kind, '适用文档类型', 'configuration'))
 
-    selected = next((r for r in project['runs'] if r['id'] == run_id), project['runs'][-1] if project['runs'] else None)
+    document_runs = [r for r in project['runs'] if r.get('document_id') == plan['document_id']]
+    selected = next((r for r in project['runs'] if r['id'] == run_id), document_runs[-1] if document_runs else None)
+    visible_runs = document_runs + ([selected] if selected and selected not in document_runs else [])
     current_runs = [r for r in project['runs'] if cycle_current and r.get('cycle_id') == cycle['id']]
     current_findings = {f['id'] for f in project['findings'] if cycle_current and f.get('cycle_id') == cycle['id']}
     current_revisions = [r for r in project['revisions'] if r['finding_id'] in current_findings]
@@ -338,14 +358,85 @@ def lifecycle(project, run_id=None):
         process_edges.append(edge('stage:exploration', dnode['id'], '按本体范围', 'configuration'))
         process_edges.append(edge(dnode['id'], 'stage:reasoning', '独立视角评审', 'flow'))
     used_graph = consumption_graph(project, selected, profile)
+    growing = document_content_graph(project)
+    nodes.update({n['id']: n for n in growing['nodes']})
+    edges = list({e['id']: e for e in edges + growing['edges']}.values())
+    scoped_clauses = {n['id'] for n in nodes.values() if n['kind'] == 'clause' and n.get('document_id') in scoped_document_ids}
+    mapped_types = {e['target'] for e in edges if e['label'] == 'CLASSIFIED_AS' and e['source'] in scoped_clauses}
+    business_ids = {n['id'] for n in nodes.values() if n['kind'] in ('document', 'clause', 'content') and n.get('document_id') in scoped_document_ids
+                    or n['kind'] == 'concept' and n['id'] in mapped_types}
+    business = {'nodes': [n for n in nodes.values() if n['id'] in business_ids],
+                'edges': [e for e in edges if e['source'] in business_ids and e['target'] in business_ids]}
+    static = standard_graph()
+    static['nodes'].extend(n for n in nodes.values() if n['kind'] == 'concept')
+    static['edges'].extend(e for e in edges if e['kind'] == 'ontology'
+                           and nodes[e['source']]['kind'] == nodes[e['target']]['kind'] == 'concept')
+    content_ready = version_key(current_document) in project.get('content_ontologies', {})
+    process_nodes.append(node('stage:content_growth', 'stage', '文档内容本体生长与保存', 'alignment',
+                              status='completed' if content_ready else 'pending',
+                              subtitle='每文档版本构建一次，各维度复用；不是维度切批'))
+    process_edges = [e for e in process_edges if not (e['source'] == 'stage:alignment' and e['target'] == 'stage:retrieval')]
+    process_edges.extend([edge('stage:alignment', 'stage:content_growth', '按文档构建', 'flow'),
+                          edge('stage:content_growth', 'stage:retrieval', '共享内容图谱', 'flow')])
     return {'profile': profile, 'plan': plan, 'dimensions': roles, 'stages': stages,
             'cycle': cycle, 'cycle_current': cycle_current, 'selected_run': selected['id'] if selected else None,
             'runs': [{'id': r['id'], 'agent': r['agent'], 'status': r['status'], 'perspective': r['perspective'],
-                      'cycle_id': r.get('cycle_id'), 'metrics': r['metrics']} for r in project['runs']],
-            'ontology_graph': {'nodes': list(nodes.values()), 'edges': edges},
+                      'cycle_id': r.get('cycle_id'), 'scope': r.get('review_scope', 'historical'), 'metrics': r['metrics']} for r in visible_runs],
+            'ontology_graph': business, 'static_graph': static,
+            'content_status': [{'document_id': d['id'], 'title': d['title'],
+                                'saved': d['id'] + ':' + d['sha256'] in project.get('content_ontologies', {})}
+                               for d in project['documents'] if d['id'] in scoped_document_ids],
             'process_graph': {'nodes': process_nodes, 'edges': process_edges},
             'consumption_graph': used_graph, 'trace': usage_trace(selected, used_graph),
             'statistics': {'concepts': sum(n['kind'] == 'concept' for n in nodes.values()),
                            'clauses': sum(n['kind'] == 'clause' for n in nodes.values()),
                            'bindings': sum(e['label'] == 'CLASSIFIED_AS' for e in edges), 'dimensions': len(roles)},
             'ingestions': project.get('ingestions', [])}
+
+
+def document_content_graph(project):
+    """Show saved per-document growth immediately, before the combined snapshot is published."""
+    nodes, edges = {}, []
+    for document in project['documents']:
+        record = project.get('content_ontologies', {}).get(version_key(document))
+        if not record:
+            continue
+        for concept in record['grounded']['concepts']:
+            identifier = content_identifier(document, concept['label'])
+            block = next(b for b in document['blocks'] if b['id'] == concept['block_id'])
+            nodes[identifier] = node(identifier, 'content', concept['label'], 'alignment', layer='document',
+                status='completed', document_id=document['id'], document_title=document['title'],
+                document_name=document['type_name'], block_id=block['id'], subtitle='原文已绑定，语义待核查',
+                details={'quote': concept['quote'], 'blocks': [block], 'sha256': document['sha256'],
+                         'source': '已保存的文档内容抽取；不是GJB规范',
+                         'published': version_key(document) in project['graph'].get('content_versions', [])})
+            edges.append(edge(block['clause_id'], identifier, 'MENTIONS', 'structure',
+                              provenance={'source': document['filename'], 'quote': concept['quote']}))
+        for relation in record['grounded']['relations']:
+            edges.append(edge(content_identifier(document, relation['subject']), content_identifier(document, relation['object']),
+                              relation['relation'], 'content', provenance={'source': document['filename'], 'quote': relation['quote']}))
+    return {'nodes': list(nodes.values()), 'edges': edges}
+
+
+def standard_graph():
+    """Project the supplied standard tree as immutable normative text, not project facts."""
+    path = Path(os.getenv('GJB_SOURCE_JSON', ''))
+    if not path.is_file():
+        return {'nodes': [], 'edges': []}
+    data = json.loads(path.read_text())
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    nodes, edges = [], []
+
+    def visit(section, parent=None):
+        identifier = 'norm:' + digest + ':' + section['id']
+        nodes.append(node(identifier, 'standard', 'GJB ' + section['id'] + ' ' + section['title'], 'ontology',
+                          layer='ontology', details={'number': section['id'], 'source': path.name,
+                              'sha256': digest, 'pages': section['pdf_pages'],
+                              'text': '\n'.join(b['text'] for b in section['blocks'])}))
+        if parent:
+            edges.append(edge(parent, identifier, '包含标准条款', 'structure'))
+        for child in section['children']:
+            visit(child, identifier)
+    for section in data['sections']:
+        visit(section)
+    return {'nodes': nodes, 'edges': edges}

@@ -104,6 +104,7 @@ def import_files(files, project=None):
                           'documents': [], 'findings': [], 'runs': [], 'revisions': []}
     directory = DATA / project['id']
     directory.mkdir(parents=True, exist_ok=True)
+    previous_documents = len(project['documents'])
     for path, original_name, kind in files:
         source_id = key()
         destination = directory / f'{source_id}{path.suffix.lower()}'
@@ -114,6 +115,8 @@ def import_files(files, project=None):
                 doc['title'] = re.sub(r'^\d+_', '', Path(original_name).stem).replace('_', ' · ')
             doc['source_file'] = destination.name
             project['documents'].append(doc)
+    if files:
+        project['review_document_id'] = project['documents'][previous_documents]['id']
     events.append({'stage': 'alignment', 'title': '解析文档与版本化条款', 'time': time.time(),
                    'documents': len(project['documents'])})
     trees = [ClauseTree.model_validate(d['tree']) for d in project['documents']]
@@ -252,8 +255,8 @@ def bind_quote(quote, blocks):
 
 def bind_results(project, context, output, run_id):
     findings, unmatched = [], []
-    sources = [*context['evidence'], *[{**b, 'document_id': context['document']['id'],
-               'document_title': context['document']['title']} for b in context['target']]]
+    sources = [*context['evidence'], *[{'document_id': context['document']['id'],
+               'document_title': context['document']['title'], **b} for b in context['target']]]
     sources.extend({'id': 'standard-' + s['number'], 'document_id': 'standard', 'document_title': 'GJB 438C-2021',
                     'heading': s['number'] + ' ' + s['title'], 'text': s['text']} for s in context['standards'])
     for value in output['findings']:
@@ -273,12 +276,12 @@ def bind_results(project, context, output, run_id):
                                      'clause_id': source.get('clause_id')})
         editable = block['kind'] != 'heading' and (not block.get('row') or
                     sum(value['quote'] in cell for cell in block.get('cells', [])) == 1)
-        findings.append({**value, 'id': key(), 'run_id': run_id, 'document_id': context['document']['id'],
+        findings.append({**value, 'id': key(), 'run_id': run_id, 'document_id': block.get('document_id', context['document']['id']),
                          'block_id': block['id'], 'original_block': block['text'], 'evidence': evidence,
                          'clause_id': block['clause_id'], 'perspective': context['role'].get('id'),
                          'path_ids': [p['id'] for p in context['paths'] if p.get('id') and p['target'] == block['clause_id']
                                       and any(e.get('clause_id') == p['evidence'] for e in evidence)],
-                         'status': 'open', 'source_sha256': context['document']['sha256'],
+                         'status': 'open', 'source_sha256': block.get('source_sha256', context['document']['sha256']),
                          'editable': editable, 'replacement': value['replacement']})
     project['findings'].extend(findings)
     return findings, unmatched

@@ -66,6 +66,8 @@ def messages(context, focus):
             {'source': names[r['source']], 'relation': r['predicate'].rsplit('/', 1)[-1], 'target': names[r['target']]}
             for r in path['edges']]})
     prompt = (f"本次视角：{role['scope']}\n用户关注：{focus or '按本视角正常评审'}\n"
+              f"上游资料状态：{json.dumps(context.get('upstream_status', []), ensure_ascii=False)}\n"
+              f"本项目已保存的文档内容本体（原文抽取候选，不是规范要求；须对照原文判断）：\n{json.dumps(context.get('content_ontologies', []), ensure_ascii=False)}\n\n"
               f"当前待审原文：\n{render(context['target'])}\n\n"
               f"已召回的上游及内部原文（这是检索范围，未召回不代表全文没有）：\n{render(context['evidence'])}\n\n"
               f"实际查询到的已有本体路径：\n{json.dumps(paths, ensure_ascii=False)}\n\n"
@@ -78,6 +80,7 @@ async def run_review(project, request, emit, model=None):
     profile = request.get('profile') or read_profile()
     role = request.get('role') or profile['dimensions'][request['perspective']]
     run = {'id': key(), 'perspective': request['perspective'], 'agent': role['name'],
+           'review_scope': 'dimension' if request.get('coverage') else 'historical',
            'document_id': request['document_id'], 'section_id': request['section_id'], 'status': 'running',
            'cycle_id': request.get('cycle_id'), 'batch_id': request.get('batch_id'),
            'configuration': configuration_snapshot(profile, role),
@@ -96,12 +99,17 @@ async def run_review(project, request, emit, model=None):
 
     async def prepare(state):
         await event('stage', stage='retrieval', title='召回本体节点与原文', detail='查询当前快照中的上下游及文档内部证据')
-        options = ({'target_ids': request['target_ids'], 'role': role, 'dependencies': request['dependencies']}
-                   if request.get('target_ids') is not None else {})
-        context = await asyncio.to_thread(retrieve, project, request['document_id'], request['section_id'], request['perspective'], **options)
+        if request.get('coverage'):
+            from .content import dimension_context
+            context = await asyncio.to_thread(dimension_context, project, role, request['coverage'], request['dependencies'])
+        else:
+            options = ({'target_ids': request['target_ids'], 'role': role, 'dependencies': request['dependencies']}
+                       if request.get('target_ids') is not None else {})
+            context = await asyncio.to_thread(retrieve, project, request['document_id'], request['section_id'], request['perspective'], **options)
         run['context'] = {k: context[k] for k in ['paths', 'evidence', 'standards', 'snapshot_id']}
         run['context']['target'] = context['target']
         run['context']['retrieval'] = context.get('retrieval', {})
+        run['context']['content_ontologies'] = context.get('content_ontologies', [])
         await event('context', stage='exploration', paths=context['paths'], evidence=context['evidence'], standards=context['standards'],
                     snapshot_id=context['snapshot_id'],
                     title=f"召回 {len(context['evidence'])} 处原文、{len(context['paths'])} 条已有关系路径")
@@ -122,7 +130,7 @@ async def run_review(project, request, emit, model=None):
             'target_ids': [b['id'] for b in context['target']],
             'evidence_ids': [b['id'] for b in context['evidence']],
             'path_ids': [p.get('id') for p in context['paths']],
-            'concept_ids': sorted({n['id'] for p in context['paths'] for n in p['nodes'] if n['id'].startswith('type:')}),
+            'concept_ids': sorted({n['id'] for p in context['paths'] for n in p['nodes'] if n['id'].startswith(('type:', 'content:'))}),
             'standard_clauses': [s['number'] for s in context['standards']],
             'prompt_sha256': fingerprint([m.content for m in input_messages]),
         }
